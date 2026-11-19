@@ -1,5 +1,6 @@
 #![allow(clippy::missing_safety_doc)]
 
+pub mod backdrop;
 pub mod colors;
 pub mod config;
 pub mod i18n;
@@ -9,9 +10,12 @@ pub mod nautilus;
 pub mod pane;
 pub mod panel;
 pub mod prefs;
+pub mod safety;
+pub mod seethrough;
 pub mod selection;
 pub mod settings;
 pub mod shell;
+pub mod themes;
 pub mod util;
 pub mod vte;
 
@@ -32,6 +36,12 @@ unsafe extern "C" fn get_file_items(_p: gpointer, _files: *mut GList) -> *mut GL
 
 unsafe extern "C" fn get_background_items(_p: gpointer, _f: *mut NautilusFileInfoC) -> *mut GList {
     guard("background menu", ptr::null_mut(), || {
+        if safety::safe_mode() {
+            let item = MenuItem::new("ShellMan::reenable", &tr("Re-enable ShellMan"),
+                                     &tr("Turned off after Nautilus stopped unexpectedly"));
+            item.on_activate(panel::leave_safe_mode);
+            return nautilus::menu_list(vec![item]);
+        }
         let item = MenuItem::new("ShellMan::toggle", &tr("Embedded Terminal"),
                                  &tr("Show or hide the terminal at the bottom of the window"));
         item.on_activate(panel::toggle_active);

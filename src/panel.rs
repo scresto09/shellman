@@ -18,6 +18,20 @@ use crate::prefs;
 use crate::util::{guard, type_name, walk};
 
 const DATA_KEY: &str = "shellman-panel";
+const BUSY_CLASS: &str = "shellman-busy";
+
+fn ensure_css() {
+    thread_local! {
+        static DONE: Cell<bool> = const { Cell::new(false) };
+    }
+    if DONE.replace(true) {
+        return;
+    }
+    let Some(display) = gtk::gdk::Display::default() else { return };
+    let css = gtk::CssProvider::new();
+    css.load_from_string(&format!(".{BUSY_CLASS} image {{ color: @accent_color; }}"));
+    gtk::style_context_add_provider_for_display(&display, &css, gtk::STYLE_PROVIDER_PRIORITY_APPLICATION);
+}
 
 thread_local! {
     static HEIGHT: Cell<Option<i32>> = const { Cell::new(None) };
@@ -44,6 +58,7 @@ pub struct Panel {
     win: gtk::Window,
     paned: gtk::Paned,
     stack: gtk::Stack,
+    area: crate::seethrough::Watch,
     button: gtk::Widget,
     per_tab: bool,
     loc: OnceCell<Rc<LocationSource>>,
@@ -52,6 +67,10 @@ pub struct Panel {
     prev_focus: glib::WeakRef<gtk::Widget>,
     muted: RefCell<Vec<(gtk::EventController, gtk::PropagationPhase)>>,
     sel_file: PathBuf,
+    // the terminal to give the focus back to, at the next focus change
+    refocus: RefCell<Weak<Pane>>,
+    /// a command runs in a terminal of the current tab while the terminal is hidden
+    busy: Cell<bool>,
 }
 
 impl Panel {
@@ -98,6 +117,40 @@ impl Panel {
         })
     }
 
+    /// Opens the folder in the Nautilus tab, when the pane is the active terminal of the visible tab.
+    pub fn show_folder(&self, pane: &Rc<Pane>, dir: &std::path::Path) {
+        let Some(gi) = self.group_of(pane) else { return };
+        let active = self.groups.borrow()[gi].active.upgrade();
+        if Some(gi) != self.current_group() || active.is_some_and(|a| !Rc::ptr_eq(&a, pane)) {
+            return;
+        }
+        if self.current_dir().as_deref() == Some(dir) {
+            return;
+        }
+        if pane.has_focus() {
+            self.refocus.replace(Rc::downgrade(pane));
+        }
+        let uri = gio::File::for_path(dir).uri().to_variant();
+        // Nautilus 47+ has slot.open-location, 46 win.open-location
+        let done = ["slot.open-location", "win.open-location"].iter()
+            .any(|a| self.win.activate_action(a, Some(&uri)).is_ok());
+        if done {
+            log!("Nautilus follows the shell to {}", dir.display());
+        } else {
+            log!("cannot open {} in Nautilus: no open-location action", dir.display());
+        }
+    }
+
+    // The file view takes the focus when it starts loading the folder (files_view_begin_loading):
+    // the first focus change after show_folder goes back to the terminal, unless it stays inside.
+    fn refocus_once(&self, win: &gtk::Window) {
+        let Some(pane) = self.refocus.replace(Weak::new()).upgrade() else { return };
+        let inside = gtk::prelude::GtkWindowExt::focus(win).is_some_and(|f| f.is_ancestor(&self.stack));
+        if !inside {
+            glib::idle_add_local_once(move || guard("refocus", (), || pane.focus()));
+        }
+    }
+
     fn group_of(&self, pane: &Rc<Pane>) -> Option<usize> {
         self.groups.borrow().iter().position(|g| g.panes.iter().any(|p| Rc::ptr_eq(p, pane)))
     }
@@ -114,6 +167,7 @@ impl Panel {
         }
         let i = self.current_group().unwrap_or_else(|| {
             let holder = adw::Bin::new();
+            holder.add_css_class(crate::backdrop::AREA);
             self.stack.add_child(&holder);
             let tab = self.current_tab().map(|t| t.downgrade());
             self.groups.borrow_mut().push(Group { tab, holder, panes: Vec::new(), active: Weak::new(), shown: false });
@@ -252,7 +306,39 @@ impl Panel {
             .map(|(k, m)| format!(" ({})", gtk::accelerator_get_label(k, m)))
             .unwrap_or_default();
         let what = if self.shown() { tr("Hide the terminal") } else { tr("Open a terminal here") };
-        self.button.set_tooltip_text(Some(&format!("{what}{key}")));
+        let busy = if self.busy.get() { format!("\n{}", tr("A command is running")) } else { String::new() };
+        self.button.set_tooltip_text(Some(&format!("{what}{key}{busy}")));
+    }
+
+    fn poll_activity(&self) {
+        let current = self.current_group();
+        let mut busy = false;
+        for (i, g) in self.groups.borrow().iter().enumerate() {
+            for p in &g.panes {
+                busy |= p.poll_activity() && Some(i) == current;
+            }
+        }
+        let busy = busy && !self.shown();
+        if self.busy.replace(busy) != busy {
+            if busy {
+                self.button.add_css_class(BUSY_CLASS);
+            } else {
+                self.button.remove_css_class(BUSY_CLASS);
+            }
+            self.update_button();
+        }
+    }
+
+    /// the window and the terminal of a pane, from the notification of a finished command
+    pub fn present_pane(self: &Rc<Self>, pane: &Rc<Pane>) {
+        self.win.present();
+        if self.group_of(pane) != self.current_group() {
+            return;
+        }
+        if !self.shown() {
+            self.show();
+        }
+        pane.focus();
     }
 
     fn apply_settings(&self) {
@@ -261,6 +347,7 @@ impl Panel {
         }
         self.update_button();
         self.follow();
+        crate::seethrough::apply(&self.win, self.area.upcast_ref());
     }
 
     pub fn follow(&self) {
@@ -276,6 +363,50 @@ impl Panel {
         }
     }
 
+    /// false when the height cannot change
+    pub fn resize_lines(&self, pane: &Rc<Pane>, lines: i32) -> bool {
+        let h = self.paned.height();
+        if !self.shown() || h <= 0 {
+            return false;
+        }
+        let ch = pane.term.char_height().max(1);
+        let min = self.stack.measure(gtk::Orientation::Vertical, -1).0;
+        let current = h - self.paned.position();
+        let th = (current + lines * ch).clamp(min, (h - config::MIN_FILES_HEIGHT).max(min));
+        if th == current {
+            return false;
+        }
+        self.paned.set_position(h - th);
+        true
+    }
+
+    /// widens the pane in the nearest side by side split; false without one
+    pub fn resize_columns(&self, pane: &Rc<Pane>, columns: i32) -> bool {
+        let mut child = pane.widget.clone();
+        while let Some(parent) = child.parent() {
+            let Some(pn) = parent.downcast_ref::<gtk::Paned>().filter(|p| p.has_css_class(crate::seethrough::SPLIT)) else {
+                if parent.is::<gtk::Paned>() {
+                    return false;
+                }
+                child = parent;
+                continue;
+            };
+            if pn.orientation() == gtk::Orientation::Horizontal {
+                let first = pn.start_child().as_ref() == Some(&child);
+                let delta = columns * pane.term.char_width().max(1) * if first { 1 } else { -1 };
+                let w = pn.width();
+                let pos = (pn.position() + delta).clamp(config::MIN_PANE_WIDTH, (w - config::MIN_PANE_WIDTH).max(config::MIN_PANE_WIDTH));
+                if pos == pn.position() {
+                    return false;
+                }
+                pn.set_position(pos);
+                return true;
+            }
+            child = parent;
+        }
+        false
+    }
+
     pub fn split(self: &Rc<Self>, pane: &Rc<Pane>, orientation: gtk::Orientation) {
         let Some(gi) = self.group_of(pane) else { return };
         let old = pane.widget.clone();
@@ -283,6 +414,7 @@ impl Panel {
         let size = if orientation == gtk::Orientation::Horizontal { old.width() } else { old.height() };
         let pn = gtk::Paned::new(orientation);
         pn.set_wide_handle(true);
+        pn.add_css_class(crate::seethrough::SPLIT);
         pn.set_shrink_start_child(false);
         pn.set_shrink_end_child(false);
         if !replace_child(&parent, &old, pn.upcast_ref()) {
@@ -295,6 +427,14 @@ impl Panel {
         if size > 0 {
             pn.set_position(size / 2);
         }
+        let weak = Rc::downgrade(self);
+        pn.connect_position_notify(move |_| {
+            if let Some(panel) = weak.upgrade() {
+                guard("split moved", (), || for p in panel.all_panes() {
+                    p.redraw_background();
+                });
+            }
+        });
         self.groups.borrow_mut()[gi].panes.push(new.clone());
         new.spawn(&pane.shell_dir().filter(|d| d.is_dir()).unwrap_or_else(|| self.start_dir()));
         new.focus();
@@ -427,12 +567,14 @@ fn build(win: &gtk::Window, paned: gtk::Paned, button: gtk::Widget) -> Rc<Panel>
     stack.set_vhomogeneous(false);
     stack.set_hhomogeneous(false);
     stack.set_visible(false);
-    paned.set_end_child(Some(&stack));
+    let area = crate::seethrough::Watch::new(&stack, win);
+    paned.set_end_child(Some(&area));
 
     let panel = Rc::new(Panel {
         win: win.clone(),
         paned: paned.clone(),
         stack,
+        area,
         button: button.clone(),
         per_tab: settings::with(|s| s.per_tab),
         loc: OnceCell::new(),
@@ -441,6 +583,15 @@ fn build(win: &gtk::Window, paned: gtk::Paned, button: gtk::Widget) -> Rc<Panel>
         prev_focus: glib::WeakRef::new(),
         muted: RefCell::new(Vec::new()),
         sel_file: selection::new_sel_file(),
+        refocus: RefCell::new(Weak::new()),
+        busy: Cell::new(false),
+    });
+    ensure_css();
+    let weak = Rc::downgrade(&panel);
+    glib::timeout_add_local(Duration::from_secs(1), move || {
+        let Some(p) = weak.upgrade() else { return glib::ControlFlow::Break };
+        guard("activity", (), || p.poll_activity());
+        glib::ControlFlow::Continue
     });
 
     panel.update_button();
@@ -469,6 +620,13 @@ fn build(win: &gtk::Window, paned: gtk::Paned, button: gtk::Widget) -> Rc<Panel>
         actions.add_action(&a);
     }
     win.insert_action_group("shellman-app", Some(&actions));
+
+    let weak = Rc::downgrade(&panel);
+    win.connect_focus_widget_notify(move |w| {
+        if let Some(p) = weak.upgrade() {
+            guard("refocus", (), || p.refocus_once(w));
+        }
+    });
 
     let weak = Rc::downgrade(&panel);
     let loc = LocationSource::new(win, move || {
@@ -680,9 +838,34 @@ fn inject(win: &gtk::Window, tries: &Cell<u32>) -> bool {
         let weak = Rc::downgrade(&panel);
         glib::timeout_add_local_once(Duration::from_millis(500), move || {
             if let Some(p) = weak.upgrade() {
-                guard("test show", (), || p.show());
+                guard("test show", (), || {
+                    p.show();
+                    if let (Some(input), Some(pane)) = (std::env::var("SHELLMAN_TEST_INPUT").ok(), p.all_panes().first()) {
+                        pane.test_input(&input);
+                    }
+                    if std::env::var_os("SHELLMAN_TEST_SPLIT").is_some() {
+                        if let Some(pane) = p.all_panes().first() {
+                            p.split(pane, gtk::Orientation::Horizontal);
+                        }
+                    }
+                });
             }
         });
+    }
+    crate::seethrough::apply(win, panel.area.upcast_ref());
+    if let Some(path) = std::env::var_os("SHELLMAN_TEST_SNAPSHOT") {
+        let w = win.clone();
+        let delay = std::env::var("SHELLMAN_TEST_SNAPSHOT_DELAY").ok().and_then(|d| d.parse().ok()).unwrap_or(3000);
+        glib::timeout_add_local_once(Duration::from_millis(delay), move || guard("test snapshot", (), || {
+            let p = gtk::WidgetPaintable::new(Some(&w));
+            let s = gtk::Snapshot::new();
+            p.snapshot(&s, w.width() as f64, w.height() as f64);
+            if let (Some(node), Some(r)) = (s.to_node(), w.renderer()) {
+                let _ = r.render_texture(&node, None).save_to_png(&path);
+                let focus = gtk::prelude::GtkWindowExt::focus(&w).map(|f| type_name(&f));
+                log!("window snapshot written to {} (focus: {focus:?})", path.to_string_lossy());
+            }
+        }));
     }
     unsafe { win.set_data::<Rc<Panel>>(DATA_KEY, panel) };
     log!("terminal injected into {}", type_name(&parent));
@@ -758,24 +941,6 @@ fn setup(app: &gtk::Application) {
     }));
 }
 
-// the extension API does not expose Nautilus' version: ask the running binary
-fn log_nautilus_version() {
-    std::thread::spawn(|| {
-        let out = std::process::Command::new("/proc/self/exe").arg("--version").output();
-        let text = out.map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string()).unwrap_or_default();
-        let Some(version) = text.split_whitespace().last().filter(|v| v.contains('.')) else {
-            log!("Nautilus version unknown");
-            return;
-        };
-        log!("Nautilus {version}");
-        let major = version.split('.').next().and_then(|m| m.parse::<u32>().ok());
-        if !major.is_some_and(|m| config::TESTED_NAUTILUS.contains(&m)) {
-            log!("warning: ShellMan has not been tested with Nautilus {version} (tested: {:?})",
-                 config::TESTED_NAUTILUS);
-        }
-    });
-}
-
 fn try_start() -> bool {
     guard("startup", true, || {
         if unsafe { gtk::ffi::gtk_is_initialized() } == 0 {
@@ -785,10 +950,35 @@ fn try_start() -> bool {
         let Some(app) = app() else { return false };
         crate::icons::install();
         crate::shell::remove_stale_files();
-        log_nautilus_version();
-        setup(&app);
+        if crate::safety::crashed() {
+            crate::safety::set_safe_mode(true);
+            log!("safe mode: Nautilus stopped unexpectedly last time, the terminal stays off");
+            if crate::safety::first_notice() {
+                notify_safe_mode(&app);
+            }
+        } else {
+            crate::safety::arm();
+            setup(&app);
+        }
         true
     })
+}
+
+fn notify_safe_mode(app: &gtk::Application) {
+    let n = gio::Notification::new(&tr("ShellMan Turned Off"));
+    n.set_body(Some(&tr("Nautilus stopped unexpectedly while ShellMan was running. To turn it back on, \
+right-click an empty area of the folder (with no file selected), then choose “Re-enable ShellMan”.")));
+    app.send_notification(Some("shellman-safe-mode"), &n);
+}
+
+pub fn leave_safe_mode() {
+    let Some(app) = app() else { return };
+    crate::safety::clear();
+    crate::safety::set_safe_mode(false);
+    app.withdraw_notification("shellman-safe-mode");
+    log!("safe mode left");
+    crate::safety::arm();
+    setup(&app);
 }
 
 pub fn start() {

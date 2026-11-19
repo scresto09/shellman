@@ -10,7 +10,6 @@ use crate::util::guard;
 
 pub const FOLLOW_TERMINAL: &str = "terminal";
 pub const NAUTILUS: &str = "nautilus";
-pub const CUSTOM: &str = "custom";
 
 const GNOME: &str = "gnome";
 const BUILTIN: &[(&str, &str)] = &[
@@ -59,7 +58,8 @@ impl Terminal {
     }
 }
 
-fn parse(text: &str) -> Option<(String, Variant, Variant)> {
+// Ptyxis palettes: colors in [Light] and [Dark], or in [Palette] for both styles
+fn parse(text: &str) -> Option<(String, Scheme)> {
     let kf = glib::KeyFile::new();
     kf.load_from_data(text, glib::KeyFileFlags::NONE).ok()?;
     let variant = |group: &str| -> Option<Variant> {
@@ -72,20 +72,26 @@ fn parse(text: &str) -> Option<(String, Variant, Variant)> {
             palette: if palette.len() == 16 { palette } else { Vec::new() },
         })
     };
-    let name = kf.string("Palette", "Name").map(|s| s.to_string()).unwrap_or_default();
-    Some((name, variant("Light")?, variant("Dark")?))
+    let name = kf.string("Palette", "Name").map(|s| s.trim().chars().take(100).collect()).unwrap_or_default();
+    let scheme = match (variant("Light"), variant("Dark")) {
+        (Some(light), Some(dark)) => Scheme { light, dark, force_dark: None },
+        _ => single(variant("Palette")?),
+    };
+    Some((name, scheme))
 }
 
+/// (id, name) of the bundled palettes, sorted by name
 pub fn builtin() -> Vec<(&'static str, String)> {
-    BUILTIN.iter()
+    let mut list: Vec<_> = BUILTIN.iter()
         .filter_map(|(id, text)| parse(text).map(|(name, ..)| (*id, if name.is_empty() { id.to_string() } else { name })))
-        .collect()
+        .collect();
+    list.sort_by_key(|(_, name)| name.to_lowercase());
+    list
 }
 
 fn builtin_scheme(id: &str) -> Option<Scheme> {
     let (_, text) = BUILTIN.iter().find(|(i, _)| i.eq_ignore_ascii_case(id))?;
-    let (_, light, dark) = parse(text)?;
-    Some(Scheme { light, dark, force_dark: None })
+    parse(text).map(|(_, scheme)| scheme)
 }
 
 fn gnome() -> Scheme {
@@ -148,9 +154,24 @@ pub fn default_terminal() -> Option<Terminal> {
     [Terminal::Ptyxis, Terminal::GnomeTerminal].into_iter().find(|t| installed(*t))
 }
 
+const THEME_MAX: u64 = 256 * 1024;
+
+// Files from other programs or the user: only regular files of a reasonable size are read,
+// so that a FIFO, a device or a huge file in a theme folder cannot block or exhaust memory.
+fn read_file(path: &Path, max: u64) -> Option<String> {
+    use std::io::Read;
+    let meta = std::fs::metadata(path).ok()?;
+    if !meta.is_file() || meta.len() > max {
+        return None;
+    }
+    let mut text = String::new();
+    std::fs::File::open(path).ok()?.take(max + 1).read_to_string(&mut text).ok()?;
+    (text.len() as u64 <= max).then_some(text)
+}
+
 /// Some(None): another terminal comes first
 fn first_entry(file: &Path) -> Option<Option<Terminal>> {
-    let text = std::fs::read_to_string(file).ok()?;
+    let text = read_file(file, THEME_MAX)?;
     for line in text.lines().map(str::trim) {
         if line.is_empty() || line.starts_with('#') || line.starts_with('-') {
             continue;
@@ -175,8 +196,8 @@ fn first_entry(file: &Path) -> Option<Option<Terminal>> {
 
 fn ptyxis_palette(id: &str) -> Scheme {
     let file = glib::user_data_dir().join("org.gnome.Ptyxis").join("palettes").join(format!("{id}.palette"));
-    if let Some((_, light, dark)) = std::fs::read_to_string(file).ok().as_deref().and_then(parse) {
-        return Scheme { light, dark, force_dark: None };
+    if let Some((_, scheme)) = read_file(&file, THEME_MAX).as_deref().and_then(parse) {
+        return scheme;
     }
     builtin_scheme(id)
         .or_else(|| BUILTIN.iter().find(|(_, t)| parse(t).is_some_and(|(n, ..)| n.eq_ignore_ascii_case(id)))
@@ -223,7 +244,7 @@ fn gtk3_terminal_colors(theme: &str, dark: bool) -> Option<(RGBA, RGBA)> {
     dirs.extend(glib::system_data_dirs().into_iter().map(|d| d.join("themes")));
     let dir = dirs.into_iter().map(|d| d.join(theme).join("gtk-3.0")).find(|d| d.is_dir())?;
     let file = if dark && dir.join("gtk-dark.css").is_file() { "gtk-dark.css" } else { "gtk.css" };
-    let mut css = std::fs::read_to_string(dir.join(file)).ok()?;
+    let mut css = read_file(&dir.join(file), 4 * 1024 * 1024)?;
     let resource = gio::Resource::load(dir.join("gtk.gresource")).ok();
     for line in css.clone().lines() {
         let Some(path) = line.trim().strip_prefix("@import url(\"resource://")
@@ -275,42 +296,368 @@ fn gnome_terminal(watch: &mut Vec<gio::Settings>) -> Option<Scheme> {
     Some(scheme)
 }
 
+/// Theme files read from other terminals, and the user's own themes
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub enum Source {
+    BlackBox,
+    Ghostty,
+    Ptyxis,
+    Tilix,
+    Mine,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum Format {
+    Tilix,
+    Ghostty,
+    Ptyxis,
+}
+
+impl Source {
+    pub const ALL: [Source; 5] = [Source::BlackBox, Source::Ghostty, Source::Ptyxis, Source::Tilix, Source::Mine];
+
+    /// palette ids of these themes: this prefix, then the file name
+    pub fn prefix(self) -> &'static str {
+        match self {
+            Source::BlackBox => "blackbox:",
+            Source::Tilix => "tilix:",
+            Source::Ghostty => "ghostty:",
+            Source::Ptyxis => "ptyxis:",
+            Source::Mine => "mine:",
+        }
+    }
+
+    pub fn terminal(self) -> Option<&'static str> {
+        match self {
+            Source::BlackBox => Some("Black Box"),
+            Source::Tilix => Some("Tilix"),
+            Source::Ghostty => Some("Ghostty"),
+            Source::Ptyxis => Some("Ptyxis"),
+            Source::Mine => None,
+        }
+    }
+
+    // Tilix and Black Box share the JSON format of Tilix, also used for the user's themes;
+    // other files there are read as Ghostty themes
+    fn format(self, file: &str) -> Format {
+        match self {
+            Source::BlackBox | Source::Tilix => Format::Tilix,
+            Source::Ptyxis => Format::Ptyxis,
+            Source::Ghostty => Format::Ghostty,
+            Source::Mine if file.ends_with(".json") => Format::Tilix,
+            Source::Mine => Format::Ghostty,
+        }
+    }
+
+    fn accepts(self, file: &str) -> bool {
+        match self {
+            Source::BlackBox | Source::Tilix => file.ends_with(".json"),
+            Source::Ptyxis => file.ends_with(".palette"),
+            _ => true,
+        }
+    }
+
+    /// first directory first: a user theme hides a system one of the same file name
+    fn dirs(self) -> Vec<PathBuf> {
+        let system = |sub: &str| glib::system_data_dirs().into_iter().map(|d| d.join(sub)).collect::<Vec<_>>();
+        let mut dirs = match self {
+            Source::BlackBox => vec![
+                glib::user_data_dir().join("blackbox/schemes"),
+                glib::home_dir().join(".var/app/com.raggesilver.BlackBox/data/blackbox/schemes"),
+            ],
+            Source::Tilix => vec![glib::user_config_dir().join("tilix/schemes")],
+            Source::Ghostty => vec![glib::user_config_dir().join("ghostty/themes"),
+                                    glib::user_data_dir().join("ghostty/themes")],
+            Source::Ptyxis => return vec![
+                glib::user_data_dir().join("org.gnome.Ptyxis/palettes"),
+                glib::home_dir().join(".var/app/app.devsuite.Ptyxis/data/org.gnome.Ptyxis/palettes"),
+            ],
+            Source::Mine => return vec![mine_dir()],
+        };
+        dirs.extend(system(match self {
+            Source::BlackBox => "blackbox/schemes",
+            Source::Tilix => "tilix/schemes",
+            _ => "ghostty/themes",
+        }));
+        dirs
+    }
+}
+
+pub fn mine_dir() -> PathBuf {
+    glib::user_config_dir().join("shellman").join("themes")
+}
+
+pub fn split_id(id: &str) -> Option<(Source, &str)> {
+    Source::ALL.iter().find_map(|s| id.strip_prefix(s.prefix()).map(|f| (*s, f)))
+        .filter(|(_, f)| valid_file(f))
+}
+
+fn valid_file(f: &str) -> bool {
+    !f.is_empty() && !f.contains('/') && !f.starts_with('.')
+}
+
+fn read(source: Source, file: &str) -> Option<String> {
+    if !valid_file(file) {
+        return None;
+    }
+    source.dirs().iter().find_map(|d| read_file(&d.join(file), THEME_MAX))
+}
+
+pub struct ThemeFile {
+    pub id: String,
+    pub name: String,
+}
+
+/// the themes of a source, sorted by name
+pub fn themes(source: Source) -> Vec<ThemeFile> {
+    let mut files: Vec<String> = source.dirs().iter()
+        .filter_map(|d| std::fs::read_dir(d).ok())
+        .flat_map(|e| e.flatten())
+        .filter(|e| std::fs::metadata(e.path()).is_ok_and(|m| m.is_file() && m.len() <= THEME_MAX))
+        .filter_map(|e| e.file_name().into_string().ok())
+        .filter(|n| valid_file(n) && source.accepts(n))
+        .collect();
+    files.sort();
+    files.dedup();
+    let mut list: Vec<ThemeFile> = files.into_iter().filter_map(|f| {
+        let name = file_name_of(source, &f)?;
+        Some(ThemeFile { id: format!("{}{f}", source.prefix()), name })
+    }).collect();
+    list.sort_by_key(|t| t.name.to_lowercase());
+    list
+}
+
+/// the name shown for a theme of one of the sources
+pub fn theme_name(id: &str) -> Option<String> {
+    let (source, file) = split_id(id)?;
+    file_name_of(source, file)
+}
+
+// None when the file cannot be read as a theme
+fn file_name_of(source: Source, file: &str) -> Option<String> {
+    let stem = || file.strip_suffix(".palette").unwrap_or(file).to_string();
+    match source.format(file) {
+        Format::Tilix => Some(parse_tilix(&read(source, file)?)?.0),
+        Format::Ptyxis => parse(&read(source, file)?).map(|(n, ..)| if n.is_empty() { stem() } else { n }),
+        Format::Ghostty => Some(file.to_string()),
+    }
+}
+
+fn ghostty_color(value: &str) -> Option<RGBA> {
+    let v = value.trim().trim_matches('"');
+    let hex = v.len() == 6 && v.chars().all(|c| c.is_ascii_hexdigit());
+    RGBA::parse(if hex { format!("#{v}") } else { v.to_string() }.as_str()).ok()
+}
+
+fn parse_ghostty(text: &str) -> Option<Variant> {
+    let (mut fg, mut bg, mut cursor) = (None, None, None);
+    let mut palette: [Option<RGBA>; 16] = [None; 16];
+    for line in text.lines() {
+        let line = line.trim();
+        if line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else { continue };
+        match key.trim() {
+            "foreground" => fg = ghostty_color(value),
+            "background" => bg = ghostty_color(value),
+            "cursor-color" => cursor = ghostty_color(value),
+            "palette" => {
+                let Some((i, c)) = value.split_once('=') else { continue };
+                if let (Ok(i), Some(c)) = (i.trim().parse::<usize>(), ghostty_color(c)) {
+                    if let Some(slot) = palette.get_mut(i) {
+                        *slot = Some(c);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    let palette: Vec<RGBA> = palette.iter().flatten().copied().collect();
+    Some(Variant { fg: Some(fg?), bg: Some(bg?), cursor, palette: if palette.len() == 16 { palette } else { Vec::new() } })
+}
+
+/// (name, colors, whether text and background follow the system style)
+fn parse_tilix(text: &str) -> Option<(String, Variant, bool)> {
+    let v: serde_json::Value = serde_json::from_str(text).ok()?;
+    let color = |key: &str| v.get(key).and_then(|c| c.as_str()).and_then(|c| RGBA::parse(c).ok());
+    let palette: Vec<RGBA> = v.get("palette").and_then(|p| p.as_array())
+        .map(|a| a.iter().filter_map(|c| c.as_str().and_then(|c| RGBA::parse(c).ok())).collect())
+        .unwrap_or_default();
+    let name: String = v.get("name").and_then(|n| n.as_str()).map(str::trim).filter(|n| !n.is_empty())?
+        .chars().take(100).collect();
+    let follow = v.get("use-theme-colors").and_then(|b| b.as_bool()).unwrap_or(false);
+    let colors = Variant {
+        fg: color("foreground-color"),
+        bg: color("background-color"),
+        cursor: color("cursor-background-color"),
+        palette: if palette.len() == 16 { palette } else { Vec::new() },
+    };
+    if !follow && (colors.fg.is_none() || colors.bg.is_none()) {
+        return None;
+    }
+    Some((name, colors, follow))
+}
+
+fn luminance(c: &RGBA) -> f32 {
+    0.2126 * c.red() + 0.7152 * c.green() + 0.0722 * c.blue()
+}
+
+// a theme with a single variant: its background tells the style
+fn single(mut v: Variant) -> Scheme {
+    let dark = v.bg.as_ref().is_some_and(|b| luminance(b) < 0.5);
+    if v.palette.is_empty() {
+        let g = gnome();
+        v.palette = if dark { g.dark.palette } else { g.light.palette };
+    }
+    Scheme { light: v.clone(), dark: v, force_dark: Some(dark) }
+}
+
+fn load(source: Source, file: &str) -> Option<Scheme> {
+    let text = read(source, file)?;
+    match source.format(file) {
+        Format::Ghostty => return Some(single(parse_ghostty(&text)?)),
+        Format::Ptyxis => {
+            return parse(&text).map(|(_, scheme)| scheme);
+        }
+        Format::Tilix => {}
+    }
+    let (_, v, follow) = parse_tilix(&text)?;
+    if !follow {
+        return Some(single(v));
+    }
+    // text and background of the system style, with the colors of the theme
+    let mut s = nautilus();
+    if !v.palette.is_empty() {
+        s.light.palette = v.palette.clone();
+        s.dark.palette = v.palette;
+    }
+    Some(s)
+}
+
+fn hex(c: &RGBA) -> String {
+    format!("#{:02x}{:02x}{:02x}", (c.red() * 255.0).round() as u8,
+            (c.green() * 255.0).round() as u8, (c.blue() * 255.0).round() as u8)
+}
+
+/// the file name of a theme of the user, from its name
+pub fn theme_file(name: &str) -> String {
+    let f: String = name.trim().chars().map(|c| if c == '/' || c.is_control() { '-' } else { c }).collect();
+    let f: String = f.trim_start_matches('.').trim().chars().take(100).collect();
+    if f.is_empty() { f } else { format!("{f}.json") }
+}
+
+/// whether a theme of the user, other than the one in file `except`, has this name
+pub fn mine_taken(name: &str, except: Option<&str>) -> bool {
+    let (name, file) = (name.trim().to_lowercase(), theme_file(name));
+    themes(Source::Mine).iter()
+        .filter(|t| split_id(&t.id).map(|(_, f)| f) != except)
+        .any(|t| t.name.to_lowercase() == name || t.id.ends_with(&format!(":{file}")))
+}
+
+// fg or bg None: text and background follow the system style
+fn theme_json(name: &str, v: &Variant) -> String {
+    let follow = v.fg.is_none() || v.bg.is_none();
+    let mut j = serde_json::json!({
+        "name": name.trim(),
+        "comment": "Made with ShellMan",
+        "use-theme-colors": follow,
+        "foreground-color": v.fg.as_ref().map(hex),
+        "background-color": v.bg.as_ref().map(hex),
+        "palette": v.palette.iter().take(16).map(hex).collect::<Vec<_>>(),
+    });
+    if let (Some(c), Some(bg)) = (&v.cursor, &v.bg) {
+        j["use-cursor-color"] = true.into();
+        j["cursor-background-color"] = hex(c).into();
+        j["cursor-foreground-color"] = hex(bg).into();
+    }
+    serde_json::to_string_pretty(&j).unwrap_or_default() + "\n"
+}
+
+/// writes a theme of the user; replaces: the file of the theme being edited
+pub fn save_mine(name: &str, v: &Variant, replaces: Option<&str>) -> Option<String> {
+    let file = theme_file(name);
+    if !valid_file(&file) {
+        return None;
+    }
+    let dir = mine_dir();
+    std::fs::create_dir_all(&dir).ok()?;
+    let tmp = dir.join(format!(".{file}.tmp"));
+    std::fs::write(&tmp, theme_json(name, v)).ok()?;
+    std::fs::rename(&tmp, dir.join(&file)).ok()?;
+    if let Some(old) = replaces.filter(|o| *o != file && valid_file(o)) {
+        let _ = std::fs::remove_file(dir.join(old));
+    }
+    Some(format!("{}{file}", Source::Mine.prefix()))
+}
+
+/// name and colors of a theme file of Tilix, Black Box, Ptyxis or Ghostty;
+/// for a Ptyxis palette, its variant for the current style
+pub fn read_theme_file(path: &Path) -> Option<(String, Variant)> {
+    let text = read_file(path, THEME_MAX)?;
+    if let Some((name, scheme)) = parse(&text) {
+        let stem = path.file_stem()?.to_string_lossy().trim().to_string();
+        let (light, dark) = (scheme.light.clone(), scheme.dark.clone());
+        let v = if resolve(scheme).1 { dark } else { light };
+        return Some((if name.is_empty() { stem } else { name }, v));
+    }
+    if let Some((name, v, follow)) = parse_tilix(&text) {
+        let v = if follow { Variant { fg: None, bg: None, cursor: None, palette: v.palette } } else { v };
+        return Some((name, v));
+    }
+    let v = parse_ghostty(&text)?;
+    let stem = path.file_stem()?.to_string_lossy().trim().to_string();
+    Some((stem, v))
+}
+
+pub fn delete_mine(file: &str) {
+    if valid_file(file) {
+        let _ = std::fs::remove_file(mine_dir().join(file));
+    }
+}
+
+/// every color of a theme as shown now, as a starting point for a theme of the user
+pub fn editable(id: &str) -> Variant {
+    let (mut v, dark) = resolve(scheme_for(id, &mut Vec::new()));
+    let g = gnome();
+    let g = if dark { g.dark } else { g.light };
+    v.fg = v.fg.or(g.fg);
+    v.bg = v.bg.or(g.bg);
+    v.cursor = v.cursor.or(v.fg);
+    if v.palette.len() != 16 {
+        v.palette = g.palette;
+    }
+    v
+}
+
 fn nautilus() -> Scheme {
     let g = gnome();
     let clear = |v: Variant| Variant { fg: None, bg: None, cursor: None, palette: v.palette };
     Scheme { light: clear(g.light), dark: clear(g.dark), force_dark: None }
 }
 
-fn custom(s: &settings::Settings) -> Scheme {
-    let g = gnome();
-    let parse = |c: &str| RGBA::parse(c).ok();
-    let v = |base: Variant, fg: &str, bg: &str| Variant {
-        fg: parse(fg).or(base.fg), bg: parse(bg).or(base.bg), cursor: None, palette: base.palette,
-    };
-    Scheme {
-        light: v(g.light, &s.custom_light_fg, &s.custom_light_bg),
-        dark: v(g.dark, &s.custom_dark_fg, &s.custom_dark_bg),
-        force_dark: None,
-    }
-}
-
 thread_local! {
     static WATCH: RefCell<Vec<gio::Settings>> = const { RefCell::new(Vec::new()) };
 }
 
-fn scheme() -> Scheme {
-    let s = settings::get();
-    let mut watch = Vec::new();
-    let scheme = match s.palette.as_str() {
+fn scheme_for(id: &str, watch: &mut Vec<gio::Settings>) -> Scheme {
+    match id {
         FOLLOW_TERMINAL => match default_terminal() {
-            Some(Terminal::Ptyxis) => ptyxis(&mut watch),
-            Some(Terminal::GnomeTerminal) => gnome_terminal(&mut watch),
+            Some(Terminal::Ptyxis) => ptyxis(watch),
+            Some(Terminal::GnomeTerminal) => gnome_terminal(watch),
             None => None,
         }.unwrap_or_else(nautilus),
         NAUTILUS => nautilus(),
-        CUSTOM => custom(&s),
-        id => builtin_scheme(id).unwrap_or_else(nautilus),
-    };
+        id => match split_id(id) {
+            Some((source, file)) => load(source, file),
+            None => builtin_scheme(id),
+        }.unwrap_or_else(nautilus),
+    }
+}
+
+fn scheme() -> Scheme {
+    let mut watch = Vec::new();
+    let scheme = scheme_for(&settings::with(|s| s.palette.clone()), &mut watch);
     for w in &watch {
         w.connect_changed(None, |_, _| guard("terminal colors", (), || {
             glib::idle_add_local_once(|| guard("terminal colors", (), crate::panel::restyle_all));
@@ -328,7 +675,15 @@ fn scheme() -> Scheme {
 
 /// Colors to use now; dark: whether the variant is dark
 pub fn current() -> (Variant, bool) {
-    let scheme = scheme();
+    resolve(scheme())
+}
+
+/// Colors a palette id would give now, for previews
+pub fn preview(id: &str) -> Variant {
+    resolve(scheme_for(id, &mut Vec::new())).0
+}
+
+fn resolve(scheme: Scheme) -> (Variant, bool) {
     let system_dark = adw::StyleManager::default().is_dark();
     let dark = match settings::with(|s| s.style.clone()).as_str() {
         "dark" => true,
@@ -351,12 +706,88 @@ mod tests {
     use super::*;
 
     #[test]
+    fn ghostty_theme_is_read() {
+        let mut text = String::from("# comment\nbackground = 1d1f21\nforeground = #c5c8c6\ncursor-color = #ffffff\n");
+        for i in 0..16 {
+            text.push_str(&format!("palette = {i}=#0000{i:02x}\n"));
+        }
+        let v = parse_ghostty(&text).unwrap();
+        assert_eq!(v.bg, RGBA::parse("#1d1f21").ok());
+        assert_eq!(v.fg, RGBA::parse("#c5c8c6").ok());
+        assert_eq!(v.palette.len(), 16);
+        assert_eq!(v.palette[15], RGBA::parse("#00000f").unwrap());
+        assert!(parse_ghostty("foreground = #ffffff").is_none());
+    }
+
+    #[test]
+    fn installed_themes_parse() {
+        for source in Source::ALL {
+            for t in themes(source) {
+                let (_, file) = split_id(&t.id).unwrap();
+                assert!(load(source, file).is_some_and(|s| s.dark.palette.len() == 16), "{}", t.id);
+            }
+        }
+    }
+
+    #[test]
+    fn single_ptyxis_palette() {
+        let mut text = String::from("[Palette]\nName=One\nBackground=#1F1F28\nForeground=#DCD7BA\n");
+        for i in 0..16 {
+            text.push_str(&format!("Color{i}=#0000{i:02x}\n"));
+        }
+        let (name, s) = parse(&text).unwrap();
+        assert_eq!(name, "One");
+        assert_eq!(s.force_dark, Some(true));
+        assert_eq!(s.dark.palette.len(), 16);
+    }
+
+    #[test]
+    fn damaged_theme_files_are_skipped() {
+        let dir = std::env::temp_dir().join(format!("shellman-themes-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let deep = "[".repeat(100_000);
+        let cases: [(&str, &[u8]); 6] = [
+            ("broken.json", b"{\"name\": \"x\", \"palette\": [\"#000\""),
+            ("deep.json", deep.as_bytes()),
+            ("binary.json", &[0xff, 0xfe, 0x00, 0x7b]),
+            ("empty", b""),
+            ("garbage", b"palette = 99999999999999999999=#zzz\nbackground = \nforeground"),
+            ("half.palette", b"[Palette]\nName=Half\n[Light]\nForeground=#000000\n"),
+        ];
+        for (name, data) in cases {
+            let path = dir.join(name);
+            std::fs::write(&path, data).unwrap();
+            assert!(read_theme_file(&path).is_none(), "{name}");
+        }
+        std::fs::write(dir.join("huge"), vec![b'#'; THEME_MAX as usize + 1]).unwrap();
+        assert!(read_file(&dir.join("huge"), THEME_MAX).is_none());
+        assert!(read_file(Path::new("/dev/zero"), THEME_MAX).is_none());
+        assert!(read_file(&dir, THEME_MAX).is_none());
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn tilix_scheme_is_read() {
+        let json = r##"{"name": "Test", "use-theme-colors": false, "foreground-color": "#f8f8f2",
+            "background-color": "#1e1f29", "palette": ["#000000", "#ff5555", "#50fa7b", "#f1fa8c",
+            "#bd93f9", "#ff79c6", "#8be9fd", "#bbbbbb", "#555555", "#ff5555", "#50fa7b", "#f1fa8c",
+            "#bd93f9", "#ff79c6", "#8be9fd", "#ffffff"]}"##;
+        let (name, v, follow) = parse_tilix(json).unwrap();
+        assert_eq!(name, "Test");
+        assert!(!follow);
+        assert_eq!(v.bg, RGBA::parse("#1e1f29").ok());
+        assert_eq!(v.palette.len(), 16);
+        assert!(parse_tilix(r#"{"name": "No colors"}"#).is_none());
+        assert!(parse_tilix(r#"{"name": "System", "use-theme-colors": true}"#).is_some_and(|t| t.2));
+    }
+
+    #[test]
     fn builtin_palettes_are_complete() {
         for (id, text) in BUILTIN {
-            let (name, light, dark) = parse(text).unwrap_or_else(|| panic!("{id}"));
+            let (name, s) = parse(text).unwrap_or_else(|| panic!("{id}"));
             assert!(!name.is_empty(), "{id}");
-            assert_eq!(light.palette.len(), 16, "{id}");
-            assert_eq!(dark.palette.len(), 16, "{id}");
+            assert_eq!(s.light.palette.len(), 16, "{id}");
+            assert_eq!(s.dark.palette.len(), 16, "{id}");
         }
     }
 

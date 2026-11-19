@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -16,7 +17,8 @@ pub fn log_line(msg: &str) {
         .and_then(|d| d.format("%H:%M:%S").ok())
         .map(|s| s.to_string())
         .unwrap_or_default();
-    eprintln!("[shellman {local}.{:03}] {msg}", now.subsec_millis());
+    // eprintln! panics when stderr is a closed pipe (nautilus | grep, stopped with Ctrl+C)
+    let _ = writeln!(std::io::stderr().lock(), "[shellman {local}.{:03}] {msg}", now.subsec_millis());
 }
 
 use gtk::glib;

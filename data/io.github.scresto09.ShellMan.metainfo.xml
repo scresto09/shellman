@@ -32,6 +32,7 @@
   <url type="vcs-browser">https://github.com/scresto09/shellman</url>
   <url type="translate">https://github.com/scresto09/shellman/tree/main/po</url>
   <releases>
+    <release version="0.2.0" date="2026-11-19"/>
     <release version="0.1.0" date="2026-11-12"/>
   </releases>
   <translation type="gettext">shellman</translation>

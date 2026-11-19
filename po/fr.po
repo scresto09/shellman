@@ -5,7 +5,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: shellman\n"
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-11-12 01:03+0100\n"
+"POT-Creation-Date: 2026-11-19 09:25+0100\n"
 "PO-Revision-Date: 2026-11-11 12:00+0100\n"
 "Last-Translator: Sylvain Cresto\n"
 "Language-Team: French\n"
@@ -15,121 +15,359 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=(n > 1);\n"
 
-#: config.rs:8
+#: src/backdrop.rs:19
+msgid "Fill"
+msgstr "Remplir"
+
+#: src/backdrop.rs:20
+msgid "Fit"
+msgstr "Ajuster"
+
+#: src/backdrop.rs:21
+msgid "Stretch"
+msgstr "Étirer"
+
+#: src/backdrop.rs:22
+msgid "Original Size"
+msgstr "Taille d'origine"
+
+#: src/backdrop.rs:23
+msgid "Tile"
+msgstr "Mosaïque"
+
+#: src/backdrop.rs:27
+msgid "Top Left"
+msgstr "En haut à gauche"
+
+#: src/backdrop.rs:28
+msgid "Top"
+msgstr "En haut"
+
+#: src/backdrop.rs:29
+msgid "Top Right"
+msgstr "En haut à droite"
+
+#: src/backdrop.rs:30
+msgid "Left"
+msgstr "À gauche"
+
+#: src/backdrop.rs:31
+msgid "Center"
+msgstr "Centre"
+
+#: src/backdrop.rs:32
+msgid "Right"
+msgstr "À droite"
+
+#: src/backdrop.rs:33
+msgid "Bottom Left"
+msgstr "En bas à gauche"
+
+#: src/backdrop.rs:34
+msgid "Bottom"
+msgstr "En bas"
+
+#: src/backdrop.rs:35
+msgid "Bottom Right"
+msgstr "En bas à droite"
+
+#: src/config.rs:8
 msgid "Show or Hide the Terminal"
 msgstr "Afficher / masquer le terminal"
 
-#: config.rs:9 i18n.rs:40 i18n.rs:43 pane.rs:398
+#: src/config.rs:9 src/i18n.rs:40 src/i18n.rs:43 src/pane/menu.rs:85
 msgid "Copy"
 msgstr "Copier"
 
-#: config.rs:10 pane.rs:399
+#: src/config.rs:10 src/pane/menu.rs:86
 msgid "Paste"
 msgstr "Coller"
 
-#: config.rs:11
+#: src/config.rs:11 src/pane/menu.rs:88
+msgid "Find…"
+msgstr "Rechercher…"
+
+#: src/config.rs:12 src/pane/search.rs:25
+msgid "Find Next"
+msgstr "Résultat suivant"
+
+#: src/config.rs:13 src/pane/search.rs:23
+msgid "Find Previous"
+msgstr "Résultat précédent"
+
+#: src/config.rs:14
 msgid "Insert Selected Files"
 msgstr "Insérer les fichiers sélectionnés"
 
-#: config.rs:12 pane.rs:410
+#: src/config.rs:15 src/pane/menu.rs:108
+msgid "Clear All"
+msgstr "Tout effacer"
+
+#: src/config.rs:16
+msgid "Zoom In"
+msgstr "Agrandir le texte"
+
+#: src/config.rs:17
+msgid "Zoom Out"
+msgstr "Réduire le texte"
+
+#: src/config.rs:18
+msgid "Normal Size"
+msgstr "Taille normale du texte"
+
+#: src/config.rs:19
+msgid "More Lines"
+msgstr "Plus de lignes"
+
+#: src/config.rs:20
+msgid "Fewer Lines"
+msgstr "Moins de lignes"
+
+#: src/config.rs:21
+msgid "Widen Terminal"
+msgstr "Élargir le terminal"
+
+#: src/config.rs:22
+msgid "Narrow Terminal"
+msgstr "Rétrécir le terminal"
+
+#: src/config.rs:23 src/pane/prompts.rs:40 src/prefs.rs:510
+msgid "Previous Prompt"
+msgstr "Prompt précédent"
+
+#: src/config.rs:24 src/pane/prompts.rs:41 src/prefs.rs:511
+msgid "Next Prompt"
+msgstr "Prompt suivant"
+
+#: src/config.rs:25 src/pane/menu.rs:104
 msgid "Split Right"
 msgstr "Diviser à droite"
 
-#: config.rs:13 pane.rs:411
+#: src/config.rs:26 src/pane/menu.rs:105
 msgid "Split Down"
 msgstr "Diviser en dessous"
 
-#: config.rs:14
+#: src/config.rs:27
 msgid "Split Automatically"
 msgstr "Répartir automatiquement"
 
-#: config.rs:15 pane.rs:412
+#: src/config.rs:28 src/pane/menu.rs:106
 msgid "Close Terminal"
 msgstr "Fermer le terminal"
 
-#: config.rs:16 pane.rs:407
-msgid "Go to Tab Folder"
-msgstr "Aller au dossier de l'onglet"
+#: src/config.rs:29 src/pane/menu.rs:93
+msgid "Terminal: Go to the Nautilus Folder"
+msgstr "Terminal : aller au dossier de Nautilus"
 
-#: config.rs:17
+#: src/config.rs:30
+msgid "Follow Nautilus Folder"
+msgstr "Suivre le dossier de Nautilus"
+
+#: src/config.rs:31 src/pane/menu.rs:94
+msgid "Nautilus: Go to the Terminal Folder"
+msgstr "Nautilus : aller au dossier du terminal"
+
+#: src/config.rs:32
 msgid "Go to Left Terminal"
 msgstr "Aller au terminal de gauche"
 
-#: config.rs:18
+#: src/config.rs:33
 msgid "Go to Right Terminal"
 msgstr "Aller au terminal de droite"
 
-#: config.rs:19
+#: src/config.rs:34
 msgid "Go to Terminal Above"
 msgstr "Aller au terminal du dessus"
 
-#: config.rs:20
+#: src/config.rs:35
 msgid "Go to Terminal Below"
 msgstr "Aller au terminal du dessous"
 
-#: i18n.rs:44 i18n.rs:46 pane.rs:402
+#: src/config.rs:39 src/panel.rs:758
+msgid "Terminal"
+msgstr "Terminal"
+
+#: src/config.rs:41
+msgid "Search"
+msgstr "Recherche"
+
+#: src/config.rs:42
+msgid "Folder"
+msgstr "Dossier"
+
+#: src/config.rs:43
+msgid "Splits"
+msgstr "Divisions"
+
+#: src/i18n.rs:44 src/i18n.rs:46 src/pane/menu.rs:36
 msgid "Insert the Selected File"
 msgid_plural "Insert the {n} Selected Files"
 msgstr[0] "Insérer le fichier sélectionné"
 msgstr[1] "Insérer les {n} fichiers sélectionnés"
 
-#: lib.rs:35
+#: src/lib.rs:40
+msgid "Re-enable ShellMan"
+msgstr "Réactiver ShellMan"
+
+#: src/lib.rs:41
+msgid "Turned off after Nautilus stopped unexpectedly"
+msgstr "Désactivé après un arrêt inattendu de Nautilus"
+
+#: src/lib.rs:45
 msgid "Embedded Terminal"
 msgstr "Terminal intégré"
 
-#: lib.rs:36
+#: src/lib.rs:46
 msgid "Show or hide the terminal at the bottom of the window"
 msgstr "Afficher / masquer le terminal en bas de la fenêtre"
 
-#: pane.rs:400
+#: src/pane/actions.rs:241
+msgid "Close This Terminal?"
+msgstr "Fermer ce terminal ?"
+
+#: src/pane/actions.rs:242
+msgid "A command is still running in it and will be stopped."
+msgstr "Une commande y tourne encore et sera arrêtée."
+
+#: src/pane/actions.rs:243 src/prefs.rs:53 src/themes.rs:247
+msgid "Cancel"
+msgstr "Annuler"
+
+#: src/pane/actions.rs:243
+msgid "Close"
+msgstr "Fermer"
+
+#: src/pane/activity.rs:93
+msgid "After {time}"
+msgstr "Après {time}"
+
+#: src/pane/activity.rs:95
+msgid "In {folder}, after {time}"
+msgstr "Dans {folder}, après {time}"
+
+#: src/pane/activity.rs:97
+msgid "Command Finished"
+msgstr "Commande terminée"
+
+#: src/pane/links.rs:65
+msgid "Ctrl+click to open"
+msgstr "Ctrl+clic pour ouvrir"
+
+#: src/pane/links.rs:96
+msgid "Open the Link"
+msgstr "Ouvrir le lien"
+
+#: src/pane/links.rs:97
+msgid "Copy the Link Address"
+msgstr "Copier l'adresse du lien"
+
+#: src/pane/links.rs:106
+msgid "Go to “{name}”"
+msgstr "Aller dans « {name} »"
+
+#: src/pane/links.rs:108
+msgid "Open “{name}”"
+msgstr "Ouvrir « {name} »"
+
+#: src/pane/links.rs:110
+msgid "Copy the Path"
+msgstr "Copier le chemin"
+
+#: src/pane/links.rs:111
+msgid "Insert the Path"
+msgstr "Insérer le chemin"
+
+#: src/pane/menu.rs:34
+msgid "Insert the Selected Folder"
+msgid_plural "Insert the {n} Selected Folders"
+msgstr[0] "Insérer le dossier sélectionné"
+msgstr[1] "Insérer les {n} dossiers sélectionnés"
+
+#: src/pane/menu.rs:35
+msgid "Insert the Selected Item"
+msgid_plural "Insert the {n} Selected Items"
+msgstr[0] "Insérer l'élément sélectionné"
+msgstr[1] "Insérer les {n} éléments sélectionnés"
+
+#: src/pane/menu.rs:87
 msgid "Select All"
 msgstr "Tout sélectionner"
 
-#: pane.rs:405
+#: src/pane/menu.rs:91
 msgid "Insert the {var} Variable"
 msgstr "Insérer la variable {var}"
 
-#: pane.rs:408 prefs.rs:175
-msgid "Follow Nautilus Folder"
-msgstr "Suivre le dossier de Nautilus"
+#: src/pane/menu.rs:96 src/prefs.rs:311
+msgid "Both Ways"
+msgstr "Dans les deux sens"
 
-#: pane.rs:414 panel.rs:603
+#: src/pane/menu.rs:97 src/prefs.rs:311
+msgid "The Terminal Follows Nautilus"
+msgstr "Le terminal suit Nautilus"
+
+#: src/pane/menu.rs:98 src/prefs.rs:311
+msgid "Nautilus Follows the Terminal"
+msgstr "Nautilus suit le terminal"
+
+#: src/pane/menu.rs:99 src/prefs.rs:311
+msgid "Off"
+msgstr "Aucune"
+
+#: src/pane/menu.rs:102 src/prefs.rs:314
+msgid "Folder Sync"
+msgstr "Synchronisation des dossiers"
+
+#: src/pane/menu.rs:110 src/panel.rs:761
 msgid "Preferences…"
 msgstr "Paramètres…"
 
-#: panel.rs:254
+#: src/panel.rs:308
 msgid "Hide the terminal"
 msgstr "Masquer le terminal"
 
-#: panel.rs:254
+#: src/panel.rs:308
 msgid "Open a terminal here"
 msgstr "Ouvrir un terminal ici"
 
-#: panel.rs:600 prefs.rs:173
-msgid "Terminal"
-msgstr "Terminal"
+#: src/panel.rs:309
+msgid "A command is running"
+msgstr "Une commande est en cours"
 
-#: panel.rs:604
+#: src/panel.rs:762
 msgid "About ShellMan"
 msgstr "À propos de ShellMan"
 
-#: panel.rs:608
+#: src/panel.rs:766
 msgid "Preferences, About"
 msgstr "Paramètres, à propos"
 
-#: prefs.rs:37
+#: src/panel.rs:968
+msgid "ShellMan Turned Off"
+msgstr "ShellMan désactivé"
+
+#: src/panel.rs:969
+msgid ""
+"Nautilus stopped unexpectedly while ShellMan was running. To turn it back "
+"on, right-click an empty area of the folder (with no file selected), then "
+"choose “Re-enable ShellMan”."
+msgstr ""
+"Nautilus s'est arrêté de façon inattendue pendant que ShellMan fonctionnait. "
+"Pour le réactiver, faites un clic droit sur une zone vide du dossier (sans "
+"sélectionner de fichier), puis choisissez « Réactiver ShellMan »."
+
+#: src/prefs.rs:38
 msgid " or "
 msgstr " ou "
 
-#: prefs.rs:37
+#: src/prefs.rs:38
 msgid "Disabled"
 msgstr "Désactivé"
 
-#: prefs.rs:50
+#: src/prefs.rs:51
 msgid "New Shortcut"
 msgstr "Nouveau raccourci"
 
-#: prefs.rs:51
+#: src/prefs.rs:52
 msgid ""
 "Press the key combination for “{action}”.\n"
 "\n"
@@ -139,11 +377,7 @@ msgstr ""
 "\n"
 "Échap : annuler · Retour arrière : désactiver"
 
-#: prefs.rs:52
-msgid "Cancel"
-msgstr "Annuler"
-
-#: prefs.rs:73
+#: src/prefs.rs:74
 msgid ""
 "Use Ctrl, Alt or Super with the key, or a function key (F1…F12).\n"
 "\n"
@@ -154,88 +388,137 @@ msgstr ""
 "\n"
 "Échap : annuler · Retour arrière : désactiver"
 
-#: prefs.rs:91
+#: src/prefs.rs:92
+msgid "None"
+msgstr "Aucune"
+
+#: src/prefs.rs:128 src/themes.rs:540
+msgid "Background"
+msgstr "Fond"
+
+#: src/prefs.rs:130
+msgid "Terminal Transparency"
+msgstr "Transparence du terminal"
+
+#: src/prefs.rs:132
+msgid ""
+"The desktop and the windows behind Nautilus stay visible. To blur them, "
+"install the Blur my Shell extension."
+msgstr ""
+"Le bureau et les fenêtres en arrière-plan de Nautilus restent visibles. Pour "
+"les flouter, installez l'extension Blur my Shell."
+
+#: src/prefs.rs:134
+msgid "Unavailable: the display has no compositor"
+msgstr "Indisponible : l'affichage n'a pas de compositeur"
+
+#: src/prefs.rs:140 src/prefs.rs:242
+msgid "Background Image"
+msgstr "Image de fond"
+
+#: src/prefs.rs:141
+msgid "Image"
+msgstr "Image"
+
+#: src/prefs.rs:143
+msgid "Choose an Image…"
+msgstr "Choisir une image…"
+
+#: src/prefs.rs:145
+msgid "Remove the Image"
+msgstr "Retirer l'image"
+
+#: src/prefs.rs:160
+msgid "Layout"
+msgstr "Cadrage"
+
+#: src/prefs.rs:162
+msgid "Position"
+msgstr "Position"
+
+#: src/prefs.rs:166
+msgid "One Image per Tab"
+msgstr "Une seule image par onglet"
+
+#: src/prefs.rs:167
+msgid "When off, each split terminal shows the whole image"
+msgstr "Sinon, chaque terminal divisé affiche l'image entière"
+
+#: src/prefs.rs:176
+msgid "Background Opacity"
+msgstr "Opacité du fond"
+
+#: src/prefs.rs:177
+msgid ""
+"In percent; the lower it is, the more the image or the desktop shows through"
+msgstr ""
+"En pourcentage ; plus elle est faible, plus l'image ou le bureau est visible"
+
+#: src/prefs.rs:184
+msgid "Blur"
+msgstr "Flou"
+
+#: src/prefs.rs:185
+msgid "In pixels"
+msgstr "En pixels"
+
+#: src/prefs.rs:237
+msgid "Images"
+msgstr "Images"
+
+#: src/prefs.rs:272
 msgid "Colors"
 msgstr "Couleurs"
 
-#: prefs.rs:95
+#: src/prefs.rs:276
 msgid "Style"
 msgstr "Style"
 
-#: prefs.rs:96
+#: src/prefs.rs:277
 msgid "Dark"
 msgstr "Sombre"
 
-#: prefs.rs:96
+#: src/prefs.rs:277
 msgid "Follow System"
 msgstr "Suivre le système"
 
-#: prefs.rs:96
+#: src/prefs.rs:277
 msgid "Light"
 msgstr "Clair"
 
-#: prefs.rs:106
-msgid "Same as My Terminal"
-msgstr "Comme mon terminal"
-
-#: prefs.rs:106
-msgid "Same as Nautilus"
-msgstr "Comme Nautilus"
-
-#: prefs.rs:112
-msgid "Custom"
-msgstr "Personnalisées"
-
-#: prefs.rs:115
-msgid "Palette"
-msgstr "Palette"
-
-#: prefs.rs:120
-msgid "Colors of {terminal}"
-msgstr "Couleurs de {terminal}"
-
-#: prefs.rs:121
-msgid "Neither Ptyxis nor GNOME Terminal found: Nautilus colors"
-msgstr ""
-"Ni Ptyxis ni GNOME Terminal n'ont été détectés : utilisation des couleurs de "
-"Nautilus"
-
-#: prefs.rs:125
-msgid "The background of the file view"
-msgstr "Arrière-plan de la vue des fichiers"
-
-#: prefs.rs:133
-msgid "Text, Light Style"
-msgstr "Texte, style clair"
-
-#: prefs.rs:134
-msgid "Background, Light Style"
-msgstr "Fond, style clair"
-
-#: prefs.rs:135
-msgid "Text, Dark Style"
-msgstr "Texte, style sombre"
-
-#: prefs.rs:136
-msgid "Background, Dark Style"
-msgstr "Fond, style sombre"
-
-#: prefs.rs:170
+#: src/prefs.rs:293
 msgid "Terminal Preferences"
 msgstr "Paramètres du terminal"
 
-#: prefs.rs:176
-msgid ""
-"The shell changes folder along with the window, when no command is running"
-msgstr ""
-"Le shell change de dossier en même temps que la fenêtre, lorsqu'aucune "
-"commande n'est en cours d'exécution"
+#: src/prefs.rs:297
+msgid "General"
+msgstr "Général"
 
-#: prefs.rs:186
+#: src/prefs.rs:301
+msgid "Appearance"
+msgstr "Apparence"
+
+#: src/prefs.rs:305
+msgid "Shortcuts"
+msgstr "Raccourcis"
+
+#: src/prefs.rs:309
+msgid "Behavior"
+msgstr "Comportement"
+
+#: src/prefs.rs:315
+msgid ""
+"Between the terminal and the Nautilus tab; the shell changes folder when no "
+"command is running"
+msgstr ""
+"Entre le terminal et l'onglet de Nautilus ; le shell change de dossier quand "
+"aucune commande ne tourne"
+
+#: src/prefs.rs:329
 msgid "One Terminal per Tab"
 msgstr "Un terminal par onglet"
 
-#: prefs.rs:187
+#: src/prefs.rs:330
 msgid ""
 "When off, one terminal per window follows the active tab. Applies to new "
 "windows."
@@ -243,11 +526,11 @@ msgstr ""
 "Si cette option est désactivée, un seul terminal est utilisé par fenêtre et "
 "suit l'onglet actif. S'applique aux nouvelles fenêtres."
 
-#: prefs.rs:197
+#: src/prefs.rs:340
 msgid "Show the Terminal in New Tabs"
 msgstr "Afficher le terminal dans les nouveaux onglets"
 
-#: prefs.rs:198
+#: src/prefs.rs:341
 msgid ""
 "With one terminal per tab, showing or hiding the terminal only affects the "
 "current tab"
@@ -255,43 +538,112 @@ msgstr ""
 "Avec un terminal par onglet, afficher ou masquer le terminal n'agit que sur "
 "l'onglet courant"
 
-#: prefs.rs:208
+#: src/prefs.rs:351
+msgid "Clickable Names in ls"
+msgstr "Noms cliquables dans ls"
+
+#: src/prefs.rs:352
+msgid ""
+"Adds --hyperlink to ls: right-click a name to open the file or go to the "
+"folder. Applies to new terminals."
+msgstr ""
+"Ajoute --hyperlink à ls : clic droit sur un nom pour ouvrir le fichier ou "
+"aller dans le dossier. S'applique aux nouveaux terminaux."
+
+#: src/prefs.rs:362
+msgid "Notify When a Command Finishes"
+msgstr "Prévenir quand une commande se termine"
+
+#: src/prefs.rs:363
+msgid ""
+"When it ran for more than 10 seconds while the terminal was hidden or the "
+"window in the background"
+msgstr ""
+"Si elle a duré plus de 10 secondes pendant que le terminal était masqué ou "
+"la fenêtre en arrière-plan"
+
+#: src/prefs.rs:373
+msgid "Size"
+msgstr "Taille"
+
+#: src/prefs.rs:375
 msgid "Height When Opened"
 msgstr "Hauteur à l'ouverture"
 
-#: prefs.rs:209
+#: src/prefs.rs:376
 msgid "In lines; also the minimum height of a terminal"
-msgstr "En lignes ; c'est aussi la hauteur minimale d'un terminal"
+msgstr "En lignes ; c'est aussi la hauteur minimale du terminal"
 
-#: prefs.rs:218
+#: src/prefs.rs:385
 msgid "Scrollback Lines"
 msgstr "Nombre de lignes d'historique"
 
-#: prefs.rs:227 prefs.rs:236
+#: src/prefs.rs:394 src/prefs.rs:403
 msgid "Font"
 msgstr "Police"
 
-#: prefs.rs:229
+#: src/prefs.rs:396
 msgid "Use System Monospace Font"
 msgstr "Utiliser la police à chasse fixe du système"
 
-#: prefs.rs:260
-msgid "Keyboard Shortcuts"
-msgstr "Raccourcis clavier"
+#: src/prefs.rs:425
+msgid "Cursor and Prompts"
+msgstr "Curseur et prompts"
 
-#: prefs.rs:261
+#: src/prefs.rs:427
+msgid "Bar Cursor at the Prompt"
+msgstr "Curseur en barre au prompt"
+
+#: src/prefs.rs:428
+msgid "A block cursor while a command runs"
+msgstr "Un curseur en bloc pendant qu'une commande tourne"
+
+#: src/prefs.rs:437
+msgid "Prompt Marks"
+msgstr "Repères de prompts"
+
+#: src/prefs.rs:438
+msgid "A mark along the scrollbar for each prompt"
+msgstr "Un repère sur la barre de défilement pour chaque prompt"
+
+#: src/prefs.rs:447
+msgid "Prompt Buttons"
+msgstr "Boutons de prompts"
+
+#: src/prefs.rs:448
+msgid "Buttons near the scrollbar to go from one prompt to another"
+msgstr ""
+"Des boutons près de la barre de défilement pour passer d'un prompt à l'autre"
+
+#: src/prefs.rs:467
 msgid "Click an action, then press the new key combination"
 msgstr "Cliquez sur une action puis appuyez sur la nouvelle combinaison"
 
-#: prefs.rs:285
+#: src/prefs.rs:494
 msgid "Reset"
 msgstr "Réinitialiser"
 
-#: prefs.rs:288
+#: src/prefs.rs:497
 msgid "Restore all default shortcuts"
 msgstr "Rétablir tous les raccourcis par défaut"
 
-#: prefs.rs:311
+#: src/prefs.rs:507
+msgid "Built In"
+msgstr "Intégrés"
+
+#: src/prefs.rs:508
+msgid "Provided by the terminal, they cannot be changed"
+msgstr "Fournis par le terminal, ils ne peuvent pas être modifiés"
+
+#: src/prefs.rs:519
+msgid "Move the Cursor at the Prompt"
+msgstr "Déplacer le curseur au prompt"
+
+#: src/prefs.rs:521
+msgid "Alt+Click"
+msgstr "Alt+clic"
+
+#: src/prefs.rs:544
 msgid ""
 "An embedded terminal at the bottom of Nautilus (GNOME Files) windows. It "
 "follows the displayed folder, and the files selected in Nautilus are "
@@ -301,13 +653,199 @@ msgstr ""
 "dossier affiché et les fichiers sélectionnés dans Nautilus sont accessibles "
 "via la variable SEL."
 
-#: prefs.rs:313
+#: src/prefs.rs:546
 msgid "Built with"
 msgstr "Basé sur"
 
-#: prefs.rs:313
+#: src/prefs.rs:546
 msgid "VTE (GNOME terminal widget)"
 msgstr "VTE (terminal GNOME)"
+
+#: src/themes.rs:23
+msgid "Colors of {terminal}"
+msgstr "Couleurs de {terminal}"
+
+#: src/themes.rs:24
+msgid "Neither Ptyxis nor GNOME Terminal found: Nautilus colors"
+msgstr ""
+"Ni Ptyxis ni GNOME Terminal n'ont été détectés : utilisation des couleurs de "
+"Nautilus"
+
+#: src/themes.rs:31
+msgid "Automatic"
+msgstr "Automatique"
+
+#: src/themes.rs:32 src/themes.rs:44
+msgid "Same as My Terminal"
+msgstr "Comme mon terminal"
+
+#: src/themes.rs:33 src/themes.rs:45
+msgid "Same as Nautilus"
+msgstr "Comme Nautilus"
+
+#: src/themes.rs:33
+msgid "The background of the file view"
+msgstr "Arrière-plan de la vue des fichiers"
+
+#: src/themes.rs:35
+msgid "Built-in"
+msgstr "Intégrés"
+
+#: src/themes.rs:37 src/themes.rs:374
+msgid "My Themes"
+msgstr "Mes thèmes"
+
+#: src/themes.rs:243 src/themes.rs:248
+msgid "Delete"
+msgstr "Supprimer"
+
+#: src/themes.rs:246
+msgid "Delete “{name}”?"
+msgstr "Supprimer « {name} » ?"
+
+#: src/themes.rs:288
+msgid "Import a Theme"
+msgstr "Importer un thème"
+
+#: src/themes.rs:294
+msgid "Not a theme of Black Box, Ghostty, Ptyxis or Tilix"
+msgstr "Ce n'est pas un thème de Black Box, Ghostty, Ptyxis ou Tilix"
+
+#: src/themes.rs:298 src/themes.rs:605
+msgid "The theme could not be saved"
+msgstr "Le thème n'a pas pu être enregistré"
+
+#: src/themes.rs:355
+msgid "Search Themes"
+msgstr "Rechercher un thème"
+
+#: src/themes.rs:404
+msgid "Import…"
+msgstr "Importer…"
+
+#: src/themes.rs:405
+msgid "Add a theme file of Black Box, Ghostty, Ptyxis or Tilix"
+msgstr "Ajouter un fichier de thème de Black Box, Ghostty, Ptyxis ou Tilix"
+
+#: src/themes.rs:454
+msgid "Go to the Current Theme"
+msgstr "Aller au thème actuel"
+
+#: src/themes.rs:470 src/themes.rs:630
+msgid "Theme"
+msgstr "Thème"
+
+#: src/themes.rs:494 src/themes.rs:497
+msgid "My Theme"
+msgstr "Mon thème"
+
+#: src/themes.rs:517
+msgid "Name"
+msgstr "Nom"
+
+#: src/themes.rs:520
+msgid "{theme} (Custom)"
+msgstr "{theme} (personnalisé)"
+
+#: src/themes.rs:523
+msgid "Preview"
+msgstr "Aperçu"
+
+#: src/themes.rs:536
+msgid "Text and Background"
+msgstr "Texte et fond"
+
+#: src/themes.rs:539
+msgid "Text"
+msgstr "Texte"
+
+#: src/themes.rs:541
+msgid "Cursor"
+msgstr "Curseur"
+
+#: src/themes.rs:558
+msgid "Palette"
+msgstr "Palette"
+
+#: src/themes.rs:559
+msgid "The 16 colors used by programs such as ls or git"
+msgstr "Les 16 couleurs utilisées par les programmes comme ls ou git"
+
+#: src/themes.rs:561
+msgid "Black"
+msgstr "Noir"
+
+#: src/themes.rs:561
+msgid "Blue"
+msgstr "Bleu"
+
+#: src/themes.rs:561
+msgid "Cyan"
+msgstr "Cyan"
+
+#: src/themes.rs:561
+msgid "Green"
+msgstr "Vert"
+
+#: src/themes.rs:561
+msgid "Magenta"
+msgstr "Magenta"
+
+#: src/themes.rs:561
+msgid "Red"
+msgstr "Rouge"
+
+#: src/themes.rs:561
+msgid "White"
+msgstr "Blanc"
+
+#: src/themes.rs:561
+msgid "Yellow"
+msgstr "Jaune"
+
+#: src/themes.rs:562
+msgid "Bright"
+msgstr "Vives"
+
+#: src/themes.rs:562
+msgid "Normal"
+msgstr "Normales"
+
+#: src/themes.rs:581
+msgid "Save"
+msgstr "Enregistrer"
+
+#: src/themes.rs:599
+msgid "Give the theme a name"
+msgstr "Donnez un nom au thème"
+
+#: src/themes.rs:602
+msgid "A theme with this name already exists"
+msgstr "Un thème porte déjà ce nom"
+
+#: src/themes.rs:618
+msgid "Edit Theme"
+msgstr "Modifier le thème"
+
+#: src/themes.rs:618
+msgid "New Theme"
+msgstr "Nouveau thème"
+
+#: src/themes.rs:643
+msgid "Edit This Theme"
+msgstr "Modifier ce thème"
+
+#: src/themes.rs:644
+msgid "Change its colors or its name"
+msgstr "Changer ses couleurs ou son nom"
+
+#: src/themes.rs:646
+msgid "Customize This Theme"
+msgstr "Personnaliser ce thème"
+
+#: src/themes.rs:647
+msgid "Make your own theme from its colors"
+msgstr "Créer votre propre thème à partir de ses couleurs"
 
 #: data/io.github.scresto09.ShellMan.metainfo.xml:6
 msgid "Embedded terminal at the bottom of the window"
@@ -341,3 +879,16 @@ msgstr ""
 #: data/io.github.scresto09.ShellMan.metainfo.xml:27
 msgid "Two terminals side by side under the files"
 msgstr "Deux terminaux côte à côte sous les fichiers"
+
+#~ msgid ""
+#~ "The shell changes folder along with the window, when no command is running"
+#~ msgstr ""
+#~ "Le shell change de dossier en même temps que la fenêtre, lorsqu'aucune "
+#~ "commande n'est en cours d'exécution"
+
+#~ msgid "A cd in the terminal also opens the folder in the Nautilus tab"
+#~ msgstr ""
+#~ "Un cd dans le terminal ouvre aussi le dossier dans l'onglet de Nautilus"
+
+#~ msgid "Keyboard Shortcuts"
+#~ msgstr "Raccourcis clavier"
