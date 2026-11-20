@@ -3,7 +3,7 @@
 A terminal at the bottom of Nautilus (GNOME Files) windows.
 Home page: https://scresto.pages-perso.free.fr/shellman/
 
-![ShellMan in Nautilus](https://scresto.pages-perso.free.fr/shellman/img/screenshot.png)
+![ShellMan in Nautilus](https://scresto.pages-perso.free.fr/shellman/img/screenshot2.png)
 
 - **F4** shows the terminal, gives it the keyboard, then hides it.
 - The shell **follows the displayed folder**, and Nautilus follows `cd` in the terminal
